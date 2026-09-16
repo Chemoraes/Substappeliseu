@@ -914,14 +914,9 @@ function renderizarTabelaResultadoEditavel() {
     tbody.appendChild(tr);
   });
 
-  let msg = "*ESCALA DE SUBSTITUIÇÃO — E.E. REVERENDO ELISEU NARCISO*
-==================================
-
-";
+  let msg = "*ESCALA DE SUBSTITUIÇÃO — E.E. REVERENDO ELISEU NARCISO*\n==================================\n\n";
   resultadosTemporarios.forEach(item => {
-    msg += `• *${item.dia} (${item.data}) - ${item.aula}ª Aula* (${item.horario})
-  Ausente: *${item.ausente}* ➔ Substituto: *${item.docente}* (${item.disciplina} [${item.turma}])
-`;
+    msg += `• *${item.dia} (${item.data}) - ${item.aula}ª Aula* (${item.horario})\n  Ausente: *${item.ausente}* ➔ Substituto: *${item.docente}* (${item.disciplina} [${item.turma}])\n`;
   });
   document.getElementById("texto-aviso").value = msg;
   document.getElementById("card-resultado").style.display = "block";
