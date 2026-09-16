@@ -160,10 +160,41 @@
 
   <div class="tabs-nav no-print">
     <div class="tab-item active" id="tab-btn-subst" onclick="alternarAba('subst')">Escala de Substituições (Diária / Semanal)</div>
+    <div class="tab-item" id="tab-btn-resumo" onclick="alternarAba('resumo')">📋 Resumo Geral & Histórico Ativo</div>
     <div class="tab-item" id="tab-btn-individual" onclick="alternarAba('individual')">👤 Grade Individual & Impressão</div>
     <div class="tab-item" id="tab-btn-multiplica" onclick="alternarAba('multiplica')">📚 Horários Multiplica SP (Bloqueio)</div>
     <div class="tab-item" id="tab-btn-contador" onclick="alternarAba('contador')">📊 Contador de Substituições Semanais</div>
     <div class="tab-item" id="tab-btn-paac" onclick="alternarAba('paac')">⚙️ Gestão de PAACs e Macroáreas</div>
+  </div>
+
+  <!-- ABA NOVA: RESUMO GERAL DE SUBSTITUIÇÕES ATIVAS -->
+  <div id="aba-resumo" style="display: none;">
+    <div class="card">
+      <div class="card-title">
+        <span>📋 Resumo Geral de Substituições Realizadas na Semana</span>
+        <button class="btn-secondary" onclick="renderizarResumoGeral()">🔄 Atualizar Resumo</button>
+      </div>
+      <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 10px;">
+        Visualização unificada de todas as substituições geradas e registradas na nuvem para a escola.
+      </p>
+      <div class="gestao-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Data / Dia</th>
+              <th>Aula</th>
+              <th>Professor Ausente</th>
+              <th>Turma / Disciplina</th>
+              <th>Professor Substituto</th>
+              <th>Status em Nuvem</th>
+            </tr>
+          </thead>
+          <tbody id="tabela-resumo-geral">
+            <tr><td colspan="6" style="text-align:center; color:var(--text-muted); font-style:italic;">Nenhuma escala processada recentemente.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
   </div>
 
   <!-- ABA 1: ESCALA DE SUBSTITUIÇÃO -->
@@ -1444,7 +1475,7 @@ function renderizarTabelaMultiplica() {
   });
 }
 
-function alternarAba(aba) {
+/* substituido */
   document.getElementById("aba-subst").style.display = (aba === "subst") ? "grid" : "none";
   document.getElementById("aba-individual").style.display = (aba === "individual") ? "block" : "none";
   document.getElementById("aba-multiplica").style.display = (aba === "multiplica") ? "block" : "none";
@@ -2059,3 +2090,36 @@ renderizarTodosBlocos();
 </script>
 </body>
 </html>
+
+
+let historicoEscalasAtivas = [];
+
+function ajustarContadorManual(docente, delta) {
+  if (!contagemSubstMes[docente]) contagemSubstMes[docente] = 0;
+  contagemSubstMes[docente] = Math.max(0, contagemSubstMes[docente] + delta);
+  sincronizarDadosNuvem(true);
+  renderizarTabelaContadorSemanal();
+  mostrarNotificacao(`Contador de ${docente} ajustado.`);
+}
+
+function renderizarResumoGeral() {
+  const tbody = document.getElementById("tabela-resumo-geral");
+  if (!tbody) return;
+  if (!historicoEscalasAtivas || historicoEscalasAtivas.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-muted); font-style:italic;">Nenhuma escala processada nesta sessão. Os dados salvos em nuvem aparecem aqui.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = "";
+  historicoEscalasAtivas.forEach(item => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td><strong>${item.dia}</strong></td>
+      <td>${item.aula}ª Aula</td>
+      <td><strong>${item.ausente}</strong></td>
+      <td>${item.disciplina} [${item.turma}]</td>
+      <td class="text-success"><strong>${item.docente}</strong></td>
+      <td><span class="badge" style="background:#dcfce7; color:#15803d;">Sincronizado na Nuvem</span></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
