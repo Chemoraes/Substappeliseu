@@ -1222,17 +1222,20 @@ async function aplicarNovaGradeCarregada(novaGrade, novosDocentes, origem) {
   docentesMeta = novosDocentes;
 
   recalcularCargasBase();
-  if (!await salvarConfiguracao({gradeGlobal, docentesMeta})) return;
-recomputarBloqueiosMultiplica();
+  // IMPORTANTE: uma nova grade SUBSTITUI integralmente a grade e os docentes anteriores.
+  // Não usar merge para estes dois campos, pois professores removidos da nova planilha
+  // poderiam permanecer no mapa docentesMeta do Firestore.
+  if (!await salvarNovaGradeSubstituindoAnterior(gradeGlobal, docentesMeta)) return;
+  recomputarBloqueiosMultiplica();
   renderizarTodosBlocos();
   preencherSelectIndividual();
 
   const qtd = Object.keys(novosDocentes).length - 1;
   const statusEl = document.getElementById("status-grade");
   if (statusEl) statusEl.textContent = `Grade Ativa (${qtd} Professores)`;
-  mostrarLog(`✅ Sucesso: ${qtd} professores e ${novaGrade.length} aulas integradas a partir de "${origem}".`);
+  mostrarLog(`✅ Sucesso: grade anterior substituída. ${qtd} professores e ${novaGrade.length} aulas carregadas a partir de "${origem}".`);
   mostrarNotificacao(`Sucesso! ${qtd} professores carregados.`);
-  alert(`Sucesso! Foram carregados ${qtd} professores e suas respectivas aulas.`);
+  alert(`Sucesso! A grade anterior foi substituída por esta nova grade, com ${qtd} professores e suas respectivas aulas.`);
 }
 
 function processarArquivoMultiplica(input) {
@@ -1957,6 +1960,54 @@ function aplicarConfig(dados) {
   renderizarTabelaMultiplica();
   renderizarTabelaContadorSemanal();
 }
+async function salvarNovaGradeSubstituindoAnterior(novaGrade, novosDocentes) {
+  if (!dbFirebase || !configPronta || confirmando) return false;
+
+  const revisao = configRevisao;
+  const gradeLimpa = JSON.parse(JSON.stringify(novaGrade || []));
+  const docentesLimpos = JSON.parse(JSON.stringify(novosDocentes || {}));
+  invalidarProposta('Nova grade carregada. Processe novamente.');
+
+  try {
+    await dbFirebase.runTransaction(async tx => {
+      const ref = raizRef();
+      const snap = await tx.get(ref);
+      const atual = snap.exists ? snap.data() : {};
+
+      if ((atual.revisaoConfig || 0) !== revisao) {
+        throw new Error('Outro usuário alterou a configuração. Recarregue e tente novamente.');
+      }
+
+      if (snap.exists) {
+        // update() no campo de mapa substitui o valor inteiro de docentesMeta.
+        // Assim, nomes que existiam na grade antiga e não existem na nova são removidos.
+        tx.update(ref, {
+          gradeGlobal: gradeLimpa,
+          docentesMeta: docentesLimpos,
+          revisaoConfig: revisao + 1
+        });
+      } else {
+        tx.set(ref, {
+          gradeGlobal: gradeLimpa,
+          docentesMeta: docentesLimpos,
+          revisaoConfig: revisao + 1,
+          schemaVersion: 3
+        });
+      }
+    });
+    return true;
+  } catch (e) {
+    alert('Nova grade não salva: ' + e.message);
+    try {
+      const snap = await raizRef().get({source:'server'});
+      aplicarConfig(snap.data() || {});
+    } catch (_) {
+      configPronta = false;
+    }
+    return false;
+  }
+}
+
 async function salvarConfiguracao(campos) {
   if (!dbFirebase || !configPronta || confirmando) return false;
   const revisao = configRevisao;
