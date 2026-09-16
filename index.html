@@ -162,6 +162,7 @@
     <div class="tab-item active" id="tab-btn-subst" onclick="alternarAba('subst')">Escala de Substituições (Diária / Semanal)</div>
     <div class="tab-item" id="tab-btn-individual" onclick="alternarAba('individual')">👤 Grade Individual & Impressão</div>
     <div class="tab-item" id="tab-btn-multiplica" onclick="alternarAba('multiplica')">📚 Horários Multiplica SP (Bloqueio)</div>
+    <div class="tab-item" id="tab-btn-contador" onclick="alternarAba('contador')">📊 Contador de Substituições Semanais</div>
     <div class="tab-item" id="tab-btn-paac" onclick="alternarAba('paac')">⚙️ Gestão de PAACs e Macroáreas</div>
   </div>
 
@@ -179,6 +180,11 @@
             <option value="DIARIO">Substituição Diária (Falta Pontual no Dia)</option>
             <option value="SEMANAL">Substituição Semanal (Professor de Licença / Afastamento)</option>
           </select>
+        </div>
+
+        <div class="form-group" id="grupo-data-subst">
+          <label>Data Específica da Substituição:</label>
+          <input type="date" id="input-data-subst" onchange="aoMudarDataSubst()">
         </div>
 
         <div class="form-group" id="grupo-dia-semana">
@@ -305,6 +311,34 @@
     </div>
   </div>
 
+  <!-- ABA NOVA: CONTADOR DE SUBSTITUIÇÕES SEMANAIS -->
+  <div id="aba-contador" style="display: none;">
+    <div class="card">
+      <div class="card-title">
+        <span>📊 Histórico e Contador de Substituições da Semana</span>
+        <button class="btn-danger" style="width: auto; padding: 6px 12px;" onclick="zerarSemanaSubstituicao()">🔄 Iniciar Nova Semana (Zerar Contadores)</button>
+      </div>
+      <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 10px;">
+        Este painel exibe o total de substituições realizadas por cada professor na semana atual. Os dados são sincronizados em tempo real na nuvem para toda a coordenação.
+      </p>
+      <div class="gestao-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Professor(a) Substituto(a)</th>
+              <th>Área Curricular</th>
+              <th>Carga Base</th>
+              <th>Aulas Substituídas na Semana</th>
+              <th>Carga Total Atual (Base + Substituições)</th>
+              <th>Saldo Restante até o Teto (32)</th>
+            </tr>
+          </thead>
+          <tbody id="tabela-contador-semanal"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
   <!-- ABA 3: HORÁRIOS MULTIPLICA SP -->
   <div id="aba-multiplica" style="display: none;">
     <div class="card">
@@ -388,6 +422,10 @@
 </div>
 
 <script>
+let gradeGlobal = BASE_INICIAL.grade;
+let docentesMeta = BASE_INICIAL.professores;
+let contagemSubstMes = {};
+
 
 const HORARIOS_OFICIAIS = {
   1: { rotulo: "1ª Aula", hora: "07:00 - 07:50", ini: 7*60 + 0, fim: 7*60 + 50 },
@@ -458,9 +496,7 @@ async function sincronizarDadosNuvem(salvar = true) {
   }
 }
 
-let gradeGlobal = BASE_INICIAL.grade;
-let docentesMeta = BASE_INICIAL.professores;
-let contagemSubstMes = {};
+
 
 function mostrarLog(texto, isErro) {
   const bar = document.getElementById("barra-log-carregamento");
@@ -1170,6 +1206,56 @@ function zerarSemanaSubstituicao() {
 }
 
 sincronizarDadosNuvem(false);
+
+function renderizarTabelaContadorSemanal() {
+  const tbody = document.getElementById("tabela-contador-semanal");
+  if (!tbody) return;
+  tbody.innerHTML = "";
+  const nomes = Object.keys(docentesMeta).filter(k => docentesMeta[k].funcao !== "CGPG").sort();
+
+  nomes.forEach(n => {
+    const meta = docentesMeta[n];
+    const qtdSubst = contagemSubstMes[n] || 0;
+    const cargaTotal = meta.carga + qtdSubst;
+    const saldo = Math.max(0, 32 - cargaTotal);
+
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td><strong>${n}</strong></td>
+      <td><span class="tag-area">${meta.area}</span></td>
+      <td>${meta.carga} aulas</td>
+      <td><strong style="color:var(--accent);">${qtdSubst} aula(s)</strong></td>
+      <td><strong>${cargaTotal} / 32</strong></td>
+      <td><span style="color:${saldo <= 2 ? 'var(--danger)' : 'var(--success)'}; font-weight:bold;">${saldo} aula(s) restantes</span></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function aoMudarDataSubst() {
+  const inp = document.getElementById("input-data-subst");
+  const selDia = document.getElementById("sel-dia");
+  if (!inp || !inp.value || !selDia) return;
+  
+  const partes = inp.value.split("-");
+  const dataObj = new Date(partes[0], partes[1] - 1, partes[2]);
+  const diaSemanaNum = dataObj.getDay(); // 0: Dom, 1: Seg, 2: Ter, 3: Qua, 4: Qui, 5: Sex, 6: Sáb
+  const diasMap = { 1: "Segunda", 2: "Terça", 3: "Quarta", 4: "Quinta", 5: "Sexta" };
+  
+  if (diasMap[diaSemanaNum]) {
+    selDia.value = diasMap[diaSemanaNum];
+    aoMudarDia();
+  }
+}
+
+// Definir data padrão de hoje no input ao carregar
+window.addEventListener('DOMContentLoaded', () => {
+  const hoje = new Date().toISOString().split('T')[0];
+  const inp = document.getElementById("input-data-subst");
+  if (inp && !inp.value) inp.value = hoje;
+  aoMudarDataSubst();
+});
+
 recomputarBloqueiosMultiplica();
   renderizarTodosBlocos();
   preencherSelectIndividual();
@@ -1282,6 +1368,56 @@ function zerarSemanaSubstituicao() {
 }
 
 sincronizarDadosNuvem(false);
+
+function renderizarTabelaContadorSemanal() {
+  const tbody = document.getElementById("tabela-contador-semanal");
+  if (!tbody) return;
+  tbody.innerHTML = "";
+  const nomes = Object.keys(docentesMeta).filter(k => docentesMeta[k].funcao !== "CGPG").sort();
+
+  nomes.forEach(n => {
+    const meta = docentesMeta[n];
+    const qtdSubst = contagemSubstMes[n] || 0;
+    const cargaTotal = meta.carga + qtdSubst;
+    const saldo = Math.max(0, 32 - cargaTotal);
+
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td><strong>${n}</strong></td>
+      <td><span class="tag-area">${meta.area}</span></td>
+      <td>${meta.carga} aulas</td>
+      <td><strong style="color:var(--accent);">${qtdSubst} aula(s)</strong></td>
+      <td><strong>${cargaTotal} / 32</strong></td>
+      <td><span style="color:${saldo <= 2 ? 'var(--danger)' : 'var(--success)'}; font-weight:bold;">${saldo} aula(s) restantes</span></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function aoMudarDataSubst() {
+  const inp = document.getElementById("input-data-subst");
+  const selDia = document.getElementById("sel-dia");
+  if (!inp || !inp.value || !selDia) return;
+  
+  const partes = inp.value.split("-");
+  const dataObj = new Date(partes[0], partes[1] - 1, partes[2]);
+  const diaSemanaNum = dataObj.getDay(); // 0: Dom, 1: Seg, 2: Ter, 3: Qua, 4: Qui, 5: Sex, 6: Sáb
+  const diasMap = { 1: "Segunda", 2: "Terça", 3: "Quarta", 4: "Quinta", 5: "Sexta" };
+  
+  if (diasMap[diaSemanaNum]) {
+    selDia.value = diasMap[diaSemanaNum];
+    aoMudarDia();
+  }
+}
+
+// Definir data padrão de hoje no input ao carregar
+window.addEventListener('DOMContentLoaded', () => {
+  const hoje = new Date().toISOString().split('T')[0];
+  const inp = document.getElementById("input-data-subst");
+  if (inp && !inp.value) inp.value = hoje;
+  aoMudarDataSubst();
+});
+
 recomputarBloqueiosMultiplica();
     renderizarTabelaMultiplica();
     const statusEl = document.getElementById("status-multiplica");
@@ -1321,15 +1457,18 @@ function alternarAba(aba) {
   document.getElementById("aba-subst").style.display = (aba === "subst") ? "grid" : "none";
   document.getElementById("aba-individual").style.display = (aba === "individual") ? "block" : "none";
   document.getElementById("aba-multiplica").style.display = (aba === "multiplica") ? "block" : "none";
+  document.getElementById("aba-contador").style.display = (aba === "contador") ? "block" : "none";
   document.getElementById("aba-paac").style.display = (aba === "paac") ? "block" : "none";
 
   document.getElementById("tab-btn-subst").classList.toggle("active", aba === "subst");
   document.getElementById("tab-btn-individual").classList.toggle("active", aba === "individual");
   document.getElementById("tab-btn-multiplica").classList.toggle("active", aba === "multiplica");
+  document.getElementById("tab-btn-contador").classList.toggle("active", aba === "contador");
   document.getElementById("tab-btn-paac").classList.toggle("active", aba === "paac");
 
   if (aba === "individual") preencherSelectIndividual();
   if (aba === "multiplica") renderizarTabelaMultiplica();
+  if (aba === "contador") renderizarTabelaContadorSemanal();
   if (aba === "paac") renderizarTabelaGestao();
 }
 
@@ -1874,6 +2013,56 @@ function zerarSemanaSubstituicao() {
 }
 
 sincronizarDadosNuvem(false);
+
+function renderizarTabelaContadorSemanal() {
+  const tbody = document.getElementById("tabela-contador-semanal");
+  if (!tbody) return;
+  tbody.innerHTML = "";
+  const nomes = Object.keys(docentesMeta).filter(k => docentesMeta[k].funcao !== "CGPG").sort();
+
+  nomes.forEach(n => {
+    const meta = docentesMeta[n];
+    const qtdSubst = contagemSubstMes[n] || 0;
+    const cargaTotal = meta.carga + qtdSubst;
+    const saldo = Math.max(0, 32 - cargaTotal);
+
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td><strong>${n}</strong></td>
+      <td><span class="tag-area">${meta.area}</span></td>
+      <td>${meta.carga} aulas</td>
+      <td><strong style="color:var(--accent);">${qtdSubst} aula(s)</strong></td>
+      <td><strong>${cargaTotal} / 32</strong></td>
+      <td><span style="color:${saldo <= 2 ? 'var(--danger)' : 'var(--success)'}; font-weight:bold;">${saldo} aula(s) restantes</span></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function aoMudarDataSubst() {
+  const inp = document.getElementById("input-data-subst");
+  const selDia = document.getElementById("sel-dia");
+  if (!inp || !inp.value || !selDia) return;
+  
+  const partes = inp.value.split("-");
+  const dataObj = new Date(partes[0], partes[1] - 1, partes[2]);
+  const diaSemanaNum = dataObj.getDay(); // 0: Dom, 1: Seg, 2: Ter, 3: Qua, 4: Qui, 5: Sex, 6: Sáb
+  const diasMap = { 1: "Segunda", 2: "Terça", 3: "Quarta", 4: "Quinta", 5: "Sexta" };
+  
+  if (diasMap[diaSemanaNum]) {
+    selDia.value = diasMap[diaSemanaNum];
+    aoMudarDia();
+  }
+}
+
+// Definir data padrão de hoje no input ao carregar
+window.addEventListener('DOMContentLoaded', () => {
+  const hoje = new Date().toISOString().split('T')[0];
+  const inp = document.getElementById("input-data-subst");
+  if (inp && !inp.value) inp.value = hoje;
+  aoMudarDataSubst();
+});
+
 recomputarBloqueiosMultiplica();
 renderizarTodosBlocos();
 
