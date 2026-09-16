@@ -458,14 +458,18 @@ const firebaseConfig = {
   measurementId: "G-2MG3MTC8PM"
 };
 
+
 let dbFirebase = null;
 try {
-  if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-  dbFirebase = firebase.firestore();
-  console.log("Firebase Firestore conectado!");
+  if (typeof firebase !== 'undefined') {
+    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+    dbFirebase = firebase.firestore();
+    console.log("Firebase Firestore conectado com sucesso!");
+  }
 } catch (e) {
-  console.warn("Firebase não inicializado:", e);
+  console.warn("Firebase operando em modo local:", e);
 }
+
 
 async function sincronizarDadosNuvem(salvar = true) {
   if (!dbFirebase) return;
@@ -791,7 +795,8 @@ function processarArquivoMultiplica(input) {
 function processarTextoColadoMultiplica() {
   const txt = document.getElementById("txt-colar-multiplica").value.trim();
   if (!txt) return alert("Cole os dados primeiro.");
-  const linhas = txt.split(/?
+  const linhas = txt.split(/
+?
 /).map(l => l.split("	").map(c => c.trim()));
   let novaLista = [];
   linhas.forEach(row => {
