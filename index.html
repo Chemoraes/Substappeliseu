@@ -198,6 +198,14 @@
       <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 10px;">
         Visualização das substituições confirmadas na semana selecionada. Para consultar semanas anteriores, use o seletor de data acima.
       </p>
+      <div class="no-print" style="display:flex; gap:8px; flex-wrap:wrap; align-items:end; margin-bottom:10px; padding:10px; background:#f8fafc; border:1px solid var(--border); border-radius:8px;">
+        <div style="min-width:210px;">
+          <label for="data-excluir-historico">Excluir registros de um dia específico:</label>
+          <input type="date" id="data-excluir-historico">
+        </div>
+        <button class="btn-danger" style="padding:7px 12px;" onclick="excluirHistoricoDoDia()">🗑️ Excluir dia selecionado</button>
+        <button class="btn-danger" style="padding:7px 12px; margin-left:auto;" onclick="excluirTodoHistoricoSemana()">🗑️ Excluir todo o histórico da semana</button>
+      </div>
       <div class="gestao-container">
         <table>
           <thead>
@@ -208,10 +216,11 @@
               <th>Turma / Disciplina</th>
               <th>Professor Substituto</th>
               <th>Status em Nuvem</th>
+              <th class="no-print">Ações</th>
             </tr>
           </thead>
           <tbody id="tabela-resumo-geral">
-            <tr><td colspan="6" style="text-align:center; color:var(--text-muted); font-style:italic;">Nenhuma substituição confirmada nesta semana.</td></tr>
+            <tr><td colspan="7" style="text-align:center; color:var(--text-muted); font-style:italic;">Nenhuma substituição confirmada nesta semana.</td></tr>
           </tbody>
         </table>
       </div>
@@ -2074,7 +2083,7 @@ function validarProposta(proposta, atual) {
       if (Number(docentesMeta[r.docente]?.carga || 0)+quantidade > 32) throw new Error('O teto de 32 aulas foi atingido. Processe novamente.');
       contagem[r.docente]=quantidade;
     }
-    registros.push({...r, propostaId:proposta.id});
+    registros.push({...r, propostaId:proposta.id, registroId: novoId()});
   }
   return {contagem, historico:registros, revisao:(atual.revisao || 0)+1};
 }
@@ -2124,16 +2133,97 @@ async function ajustarContadorManual(docente, delta) {
     mostrarNotificacao('Contador ajustado no Firebase. O histórico de aulas foi preservado.');
   } catch(e) { alert('Ajuste não salvo: '+e.message); }
 }
+function chaveRegistroHistorico(r) {
+  return r.registroId || [r.data || '', r.dia || '', r.aula || '', r.ausente || '', r.docente || '', r.disciplina || '', r.turma || '', r.propostaId || ''].join('¦');
+}
+function reduzirContagemPorRegistros(contagemAtual, removidos) {
+  const contagem = {...(contagemAtual || {})};
+  removidos.forEach(r => {
+    if (!r.docente || r.docente === 'SEM SUBSTITUTO' || docentesMeta[r.docente]?.funcao === 'CGPG') return;
+    contagem[r.docente] = Math.max(0, (contagem[r.docente] || 0) - 1);
+  });
+  return contagem;
+}
+async function removerRegistrosHistorico(predicado, mensagemConfirmacao, mensagemSucesso) {
+  if (!configPronta || !semanaPronta || confirmando) return alert('Aguarde a sincronização com o servidor.');
+  const candidatos = historicoEscalasAtivas.filter(predicado);
+  if (!candidatos.length) return alert('Nenhum registro correspondente foi encontrado nesta semana.');
+  if (!confirm(mensagemConfirmacao)) return;
+  const chaves = new Set(candidatos.map(chaveRegistroHistorico));
+  confirmando = true;
+  invalidarProposta('Histórico alterado. Processe novamente antes de confirmar uma nova escala.');
+  try {
+    await dbFirebase.runTransaction(async tx => {
+      const snap = await tx.get(semanaRef(semanaAtiva));
+      const atual = snap.exists ? snap.data() : {};
+      const historicoAtual = atual.historico || [];
+      const removidos = historicoAtual.filter(r => chaves.has(chaveRegistroHistorico(r)));
+      if (!removidos.length) throw new Error('Os registros já foram alterados por outro usuário. Atualize e tente novamente.');
+      const historico = historicoAtual.filter(r => !chaves.has(chaveRegistroHistorico(r)));
+      const contagem = reduzirContagemPorRegistros(atual.contagem || {}, removidos);
+      tx.set(semanaRef(semanaAtiva), {
+        historico,
+        contagem,
+        revisao:(atual.revisao || 0)+1,
+        ultimaAtualizacao:firebase.firestore.FieldValue.serverTimestamp()
+      }, {merge:true});
+    });
+    mostrarNotificacao(mensagemSucesso);
+  } catch(e) {
+    alert('Não foi possível excluir: '+e.message);
+  } finally {
+    confirmando = false;
+  }
+}
+function cancelarSubstituicao(chaveCodificada) {
+  const chave = decodeURIComponent(chaveCodificada);
+  const registro = historicoEscalasAtivas.find(r => chaveRegistroHistorico(r) === chave);
+  if (!registro) return alert('Este registro não está mais disponível. Atualize o resumo.');
+  const dataFmt = registro.data ? registro.data.split('-').reverse().join('/') : registro.dia;
+  removerRegistrosHistorico(
+    r => chaveRegistroHistorico(r) === chave,
+    `Cancelar a substituição de ${registro.docente} por ${registro.ausente}, em ${dataFmt}, ${registro.aula}ª aula?\n\nA aula também será retirada do contador semanal de ${registro.docente}.`,
+    'Substituição cancelada e contador semanal atualizado.'
+  );
+}
+function excluirHistoricoDoDia() {
+  const input = document.getElementById('data-excluir-historico');
+  const data = input.value;
+  if (!data) return alert('Selecione a data que deseja excluir.');
+  if (inicioSemana(data) !== semanaAtiva) return alert('A data selecionada não pertence à semana atualmente consultada.');
+  const dataFmt = data.split('-').reverse().join('/');
+  removerRegistrosHistorico(
+    r => r.data === data,
+    `Excluir TODAS as substituições registradas em ${dataFmt}?\n\nOs respectivos valores também serão retirados dos contadores semanais.`,
+    `Histórico de ${dataFmt} excluído e contadores atualizados.`
+  );
+}
+function excluirTodoHistoricoSemana() {
+  if (!historicoEscalasAtivas.length) return alert('Não há histórico nesta semana para excluir.');
+  const semanaFmt = semanaAtiva.split('-').reverse().join('/');
+  removerRegistrosHistorico(
+    () => true,
+    `Excluir TODO o histórico de substituições da semana iniciada em ${semanaFmt}?\n\nEsta ação remove os registros confirmados e desconta essas aulas dos contadores. Ajustes manuais do contador serão preservados.`,
+    'Todo o histórico da semana foi excluído. Ajustes manuais foram preservados.'
+  );
+}
 function renderizarResumoGeral() {
   const tbody = document.getElementById('tabela-resumo-geral'); tbody.replaceChildren();
   if (!historicoEscalasAtivas.length) {
-    const tr=tbody.insertRow(); const td=tr.insertCell(); td.colSpan=6;
+    const tr=tbody.insertRow(); const td=tr.insertCell(); td.colSpan=7;
     td.textContent='Nenhuma substituição confirmada nesta semana.'; return;
   }
   [...historicoEscalasAtivas].sort((a,b)=>(a.data || '').localeCompare(b.data || '') || a.aula-b.aula).forEach(r => {
     const tr=tbody.insertRow();
     [(r.data ? r.data.split('-').reverse().join('/')+' — ' : '')+r.dia, r.aula+'ª Aula', r.ausente,
      r.disciplina+' ['+r.turma+']', r.docente, 'Confirmada'].forEach(valor => { tr.insertCell().textContent=valor; });
+    const tdAcao = tr.insertCell(); tdAcao.className='no-print';
+    const btn=document.createElement('button');
+    btn.className='btn-danger';
+    btn.textContent='Cancelar substituição';
+    btn.title='Remove somente esta substituição e devolve 1 aula ao saldo do substituto.';
+    btn.onclick=()=>cancelarSubstituicao(encodeURIComponent(chaveRegistroHistorico(r)));
+    tdAcao.appendChild(btn);
   });
 }
 
