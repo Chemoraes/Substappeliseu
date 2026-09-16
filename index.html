@@ -1031,6 +1031,36 @@ function aoMudarDataSubst() {
   if (diasMap[diaNum]) { selDia.value = diasMap[diaNum]; aoMudarDia(); }
 }
 
+
+// Garantir escopo global para todas as funções chamadas pelo HTML (onclick)
+window.alternarAba = alternarAba;
+window.acionarUploadGrade = acionarUploadGrade;
+window.abrirModalColarGrade = abrirModalColarGrade;
+window.fecharModalColarGrade = fecharModalColarGrade;
+window.processarTextoColadoGrade = processarTextoColadoGrade;
+window.processarArquivoGradeUniversal = processarArquivoGradeUniversal;
+window.aoMudarTipoSubst = aoMudarTipoSubst;
+window.aoMudarDia = aoMudarDia;
+window.adicionarBlocoAusencia = adicionarBlocoAusencia;
+window.removerBlocoAusencia = removerBlocoAusencia;
+window.toggleAulaBloco = toggleAulaBloco;
+window.selecionarAulasDoDia = selecionarAulasDoDia;
+window.atualizarRotulosAulasBloco = atualizarRotulosAulasBloco;
+window.calcularSubstituicaoMultipla = calcularSubstituicaoMultipla;
+window.copiarAvisoFormatado = copiarAvisoFormatado;
+window.renderizarGradeIndividual = renderizarGradeIndividual;
+window.processarArquivoMultiplica = processarArquivoMultiplica;
+window.processarTextoColadoMultiplica = processarTextoColadoMultiplica;
+window.zerarSemanaSubstituicao = zerarSemanaSubstituicao;
+window.renderizarTabelaContadorSemanal = renderizarTabelaContadorSemanal;
+window.renderizarResumoGeral = renderizarResumoGeral;
+window.salvarConfiguracoesDocentes = salvarConfiguracoesDocentes;
+window.confirmarEEnviarEscala = confirmarEEnviarEscala;
+window.atualizarSubstitutoTemp = atualizarSubstitutoTemp;
+window.removerItemResumo = removerItemResumo;
+window.ajustarContadorManual = ajustarContadorManual;
+window.aoMudarDataSubst = aoMudarDataSubst;
+
 window.addEventListener('DOMContentLoaded', () => {
   const hoje = new Date().toISOString().split('T')[0];
   const inp = document.getElementById("input-data-subst");
