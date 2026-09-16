@@ -160,14 +160,14 @@
 
   <div class="tabs-nav no-print">
     <div class="tab-item active" id="tab-btn-subst" onclick="alternarAba('subst')">Escala de Substituições (Diária / Semanal)</div>
-    <div class="tab-item" id="tab-btn-resumo" onclick="alternarAba('resumo')">📋 Resumo Geral & Histórico Ativo</div>
+    <div class="tab-item" id="tab-btn-resumo" onclick="alternarAba('resumo')">📋 Resumo Geral Ativo</div>
     <div class="tab-item" id="tab-btn-individual" onclick="alternarAba('individual')">👤 Grade Individual & Impressão</div>
     <div class="tab-item" id="tab-btn-multiplica" onclick="alternarAba('multiplica')">📚 Horários Multiplica SP (Bloqueio)</div>
-    <div class="tab-item" id="tab-btn-contador" onclick="alternarAba('contador')">📊 Contador de Substituições Semanais</div>
+    <div class="tab-item" id="tab-btn-contador" onclick="alternarAba('contador')">📊 Contador de Substituições</div>
     <div class="tab-item" id="tab-btn-paac" onclick="alternarAba('paac')">⚙️ Gestão de PAACs e Macroáreas</div>
   </div>
 
-  <!-- ABA NOVA: RESUMO GERAL DE SUBSTITUIÇÕES ATIVAS -->
+  <!-- ABA: RESUMO GERAL -->
   <div id="aba-resumo" style="display: none;">
     <div class="card">
       <div class="card-title">
@@ -192,6 +192,38 @@
           <tbody id="tabela-resumo-geral">
             <tr><td colspan="6" style="text-align:center; color:var(--text-muted); font-style:italic;">Nenhuma escala processada recentemente.</td></tr>
           </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ABA: CONTADOR DE SUBSTITUIÇÕES -->
+  <div id="aba-contador" style="display: none;">
+    <div class="card">
+      <div class="card-title">
+        <span>📊 Histórico e Contador de Substituições da Semana</span>
+        <div>
+          <button class="btn-secondary" style="width: auto; padding: 5px 10px; margin-right: 6px;" onclick="renderizarTabelaContadorSemanal()">🔄 Atualizar</button>
+          <button class="btn-danger" style="width: auto; padding: 5px 10px;" onclick="zerarSemanaSubstituicao()">🔄 Nova Semana</button>
+        </div>
+      </div>
+      <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 10px;">
+        Painel unificado em tempo real. Você pode ajustar manualmente a contagem de aulas de um professor se necessário.
+      </p>
+      <div class="gestao-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Professor(a) Substituto(a)</th>
+              <th>Área Curricular</th>
+              <th>Carga Base</th>
+              <th>Aulas Substituídas</th>
+              <th>Carga Total (Base + Substituições)</th>
+              <th>Saldo Restante (Teto 32)</th>
+              <th>Ajuste Manual</th>
+            </tr>
+          </thead>
+          <tbody id="tabela-contador-semanal"></tbody>
         </table>
       </div>
     </div>
@@ -337,34 +369,6 @@
             </tr>
           </thead>
           <tbody id="tabela-grade-individual"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <!-- ABA NOVA: CONTADOR DE SUBSTITUIÇÕES SEMANAIS -->
-  <div id="aba-contador" style="display: none;">
-    <div class="card">
-      <div class="card-title">
-        <span>📊 Histórico e Contador de Substituições da Semana</span>
-        <button class="btn-danger" style="width: auto; padding: 6px 12px;" onclick="zerarSemanaSubstituicao()">🔄 Iniciar Nova Semana (Zerar Contadores)</button>
-      </div>
-      <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 10px;">
-        Este painel exibe o total de substituições realizadas por cada professor na semana atual. Os dados são sincronizados em tempo real na nuvem para toda a coordenação.
-      </p>
-      <div class="gestao-container">
-        <table>
-          <thead>
-            <tr>
-              <th>Professor(a) Substituto(a)</th>
-              <th>Área Curricular</th>
-              <th>Carga Base</th>
-              <th>Aulas Substituídas na Semana</th>
-              <th>Carga Total Atual (Base + Substituições)</th>
-              <th>Saldo Restante até o Teto (32)</th>
-            </tr>
-          </thead>
-          <tbody id="tabela-contador-semanal"></tbody>
         </table>
       </div>
     </div>
@@ -1231,6 +1235,16 @@ function zerarSemanaSubstituicao() {
 
 sincronizarDadosNuvem(false);
 
+let historicoEscalasAtivas = [];
+
+function ajustarContadorManual(docente, delta) {
+  if (!contagemSubstMes[docente]) contagemSubstMes[docente] = 0;
+  contagemSubstMes[docente] = Math.max(0, contagemSubstMes[docente] + delta);
+  sincronizarDadosNuvem(true);
+  renderizarTabelaContadorSemanal();
+  mostrarNotificacao(`Contador de ${docente} ajustado.`);
+}
+
 function renderizarTabelaContadorSemanal() {
   const tbody = document.getElementById("tabela-contador-semanal");
   if (!tbody) return;
@@ -1250,7 +1264,33 @@ function renderizarTabelaContadorSemanal() {
       <td>${meta.carga} aulas</td>
       <td><strong style="color:var(--accent);">${qtdSubst} aula(s)</strong></td>
       <td><strong>${cargaTotal} / 32</strong></td>
-      <td><span style="color:${saldo <= 2 ? 'var(--danger)' : 'var(--success)'}; font-weight:bold;">${saldo} aula(s) restantes</span></td>
+      <td><span style="color:${saldo <= 2 ? 'var(--danger)' : 'var(--success)'}; font-weight:bold;">${saldo} aula(s)</span></td>
+      <td>
+        <button class="btn-secondary" style="padding:2px 6px; font-weight:bold;" onclick="ajustarContadorManual('${n}', 1)">+1</button>
+        <button class="btn-secondary" style="padding:2px 6px; font-weight:bold; color:var(--danger);" onclick="ajustarContadorManual('${n}', -1)">-1</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function renderizarResumoGeral() {
+  const tbody = document.getElementById("tabela-resumo-geral");
+  if (!tbody) return;
+  if (!historicoEscalasAtivas || historicoEscalasAtivas.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-muted); font-style:italic;">Nenhuma substituição gerada nesta sessão. As escalas sincronizadas da nuvem aparecem aqui.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = "";
+  historicoEscalasAtivas.forEach(item => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td><strong>${item.dia}</strong></td>
+      <td>${item.aula}ª Aula</td>
+      <td><strong>${item.ausente}</strong></td>
+      <td>${item.disciplina} [${item.turma}]</td>
+      <td class="text-success"><strong>${item.docente}</strong></td>
+      <td><span class="badge" style="background:#dcfce7; color:#15803d;">Sincronizado na Nuvem</span></td>
     `;
     tbody.appendChild(tr);
   });
@@ -1392,6 +1432,16 @@ function zerarSemanaSubstituicao() {
 
 sincronizarDadosNuvem(false);
 
+let historicoEscalasAtivas = [];
+
+function ajustarContadorManual(docente, delta) {
+  if (!contagemSubstMes[docente]) contagemSubstMes[docente] = 0;
+  contagemSubstMes[docente] = Math.max(0, contagemSubstMes[docente] + delta);
+  sincronizarDadosNuvem(true);
+  renderizarTabelaContadorSemanal();
+  mostrarNotificacao(`Contador de ${docente} ajustado.`);
+}
+
 function renderizarTabelaContadorSemanal() {
   const tbody = document.getElementById("tabela-contador-semanal");
   if (!tbody) return;
@@ -1411,7 +1461,33 @@ function renderizarTabelaContadorSemanal() {
       <td>${meta.carga} aulas</td>
       <td><strong style="color:var(--accent);">${qtdSubst} aula(s)</strong></td>
       <td><strong>${cargaTotal} / 32</strong></td>
-      <td><span style="color:${saldo <= 2 ? 'var(--danger)' : 'var(--success)'}; font-weight:bold;">${saldo} aula(s) restantes</span></td>
+      <td><span style="color:${saldo <= 2 ? 'var(--danger)' : 'var(--success)'}; font-weight:bold;">${saldo} aula(s)</span></td>
+      <td>
+        <button class="btn-secondary" style="padding:2px 6px; font-weight:bold;" onclick="ajustarContadorManual('${n}', 1)">+1</button>
+        <button class="btn-secondary" style="padding:2px 6px; font-weight:bold; color:var(--danger);" onclick="ajustarContadorManual('${n}', -1)">-1</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function renderizarResumoGeral() {
+  const tbody = document.getElementById("tabela-resumo-geral");
+  if (!tbody) return;
+  if (!historicoEscalasAtivas || historicoEscalasAtivas.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-muted); font-style:italic;">Nenhuma substituição gerada nesta sessão. As escalas sincronizadas da nuvem aparecem aqui.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = "";
+  historicoEscalasAtivas.forEach(item => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td><strong>${item.dia}</strong></td>
+      <td>${item.aula}ª Aula</td>
+      <td><strong>${item.ausente}</strong></td>
+      <td>${item.disciplina} [${item.turma}]</td>
+      <td class="text-success"><strong>${item.docente}</strong></td>
+      <td><span class="badge" style="background:#dcfce7; color:#15803d;">Sincronizado na Nuvem</span></td>
     `;
     tbody.appendChild(tr);
   });
@@ -1475,22 +1551,19 @@ function renderizarTabelaMultiplica() {
   });
 }
 
-/* substituido */
+function alternarAba(aba) {
   document.getElementById("aba-subst").style.display = (aba === "subst") ? "grid" : "none";
   document.getElementById("aba-individual").style.display = (aba === "individual") ? "block" : "none";
   document.getElementById("aba-multiplica").style.display = (aba === "multiplica") ? "block" : "none";
-  document.getElementById("aba-contador").style.display = (aba === "contador") ? "block" : "none";
   document.getElementById("aba-paac").style.display = (aba === "paac") ? "block" : "none";
 
   document.getElementById("tab-btn-subst").classList.toggle("active", aba === "subst");
   document.getElementById("tab-btn-individual").classList.toggle("active", aba === "individual");
   document.getElementById("tab-btn-multiplica").classList.toggle("active", aba === "multiplica");
-  document.getElementById("tab-btn-contador").classList.toggle("active", aba === "contador");
   document.getElementById("tab-btn-paac").classList.toggle("active", aba === "paac");
 
   if (aba === "individual") preencherSelectIndividual();
   if (aba === "multiplica") renderizarTabelaMultiplica();
-  if (aba === "contador") renderizarTabelaContadorSemanal();
   if (aba === "paac") renderizarTabelaGestao();
 }
 
@@ -2036,6 +2109,16 @@ function zerarSemanaSubstituicao() {
 
 sincronizarDadosNuvem(false);
 
+let historicoEscalasAtivas = [];
+
+function ajustarContadorManual(docente, delta) {
+  if (!contagemSubstMes[docente]) contagemSubstMes[docente] = 0;
+  contagemSubstMes[docente] = Math.max(0, contagemSubstMes[docente] + delta);
+  sincronizarDadosNuvem(true);
+  renderizarTabelaContadorSemanal();
+  mostrarNotificacao(`Contador de ${docente} ajustado.`);
+}
+
 function renderizarTabelaContadorSemanal() {
   const tbody = document.getElementById("tabela-contador-semanal");
   if (!tbody) return;
@@ -2055,7 +2138,33 @@ function renderizarTabelaContadorSemanal() {
       <td>${meta.carga} aulas</td>
       <td><strong style="color:var(--accent);">${qtdSubst} aula(s)</strong></td>
       <td><strong>${cargaTotal} / 32</strong></td>
-      <td><span style="color:${saldo <= 2 ? 'var(--danger)' : 'var(--success)'}; font-weight:bold;">${saldo} aula(s) restantes</span></td>
+      <td><span style="color:${saldo <= 2 ? 'var(--danger)' : 'var(--success)'}; font-weight:bold;">${saldo} aula(s)</span></td>
+      <td>
+        <button class="btn-secondary" style="padding:2px 6px; font-weight:bold;" onclick="ajustarContadorManual('${n}', 1)">+1</button>
+        <button class="btn-secondary" style="padding:2px 6px; font-weight:bold; color:var(--danger);" onclick="ajustarContadorManual('${n}', -1)">-1</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function renderizarResumoGeral() {
+  const tbody = document.getElementById("tabela-resumo-geral");
+  if (!tbody) return;
+  if (!historicoEscalasAtivas || historicoEscalasAtivas.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-muted); font-style:italic;">Nenhuma substituição gerada nesta sessão. As escalas sincronizadas da nuvem aparecem aqui.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = "";
+  historicoEscalasAtivas.forEach(item => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td><strong>${item.dia}</strong></td>
+      <td>${item.aula}ª Aula</td>
+      <td><strong>${item.ausente}</strong></td>
+      <td>${item.disciplina} [${item.turma}]</td>
+      <td class="text-success"><strong>${item.docente}</strong></td>
+      <td><span class="badge" style="background:#dcfce7; color:#15803d;">Sincronizado na Nuvem</span></td>
     `;
     tbody.appendChild(tr);
   });
@@ -2090,36 +2199,3 @@ renderizarTodosBlocos();
 </script>
 </body>
 </html>
-
-
-let historicoEscalasAtivas = [];
-
-function ajustarContadorManual(docente, delta) {
-  if (!contagemSubstMes[docente]) contagemSubstMes[docente] = 0;
-  contagemSubstMes[docente] = Math.max(0, contagemSubstMes[docente] + delta);
-  sincronizarDadosNuvem(true);
-  renderizarTabelaContadorSemanal();
-  mostrarNotificacao(`Contador de ${docente} ajustado.`);
-}
-
-function renderizarResumoGeral() {
-  const tbody = document.getElementById("tabela-resumo-geral");
-  if (!tbody) return;
-  if (!historicoEscalasAtivas || historicoEscalasAtivas.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-muted); font-style:italic;">Nenhuma escala processada nesta sessão. Os dados salvos em nuvem aparecem aqui.</td></tr>`;
-    return;
-  }
-  tbody.innerHTML = "";
-  historicoEscalasAtivas.forEach(item => {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td><strong>${item.dia}</strong></td>
-      <td>${item.aula}ª Aula</td>
-      <td><strong>${item.ausente}</strong></td>
-      <td>${item.disciplina} [${item.turma}]</td>
-      <td class="text-success"><strong>${item.docente}</strong></td>
-      <td><span class="badge" style="background:#dcfce7; color:#15803d;">Sincronizado na Nuvem</span></td>
-    `;
-    tbody.appendChild(tr);
-  });
-}
