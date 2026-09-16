@@ -196,9 +196,7 @@
   <div id="aba-subst" class="grid-main">
     <div>
       <div class="card">
-        <div class="card-title">
-          <span>Configuração da Substituição</span>
-        </div>
+        <div class="card-title"><span>Configuração da Substituição</span></div>
 
         <div class="form-group">
           <label>Tipo de Ausência:</label>
@@ -226,15 +224,13 @@
 
         <div id="info-modo-semanal" style="display:none;" class="horarios-timeline" style="border-left: 3px solid var(--accent); background: #f0f9ff;">
           <strong style="color: var(--accent);">Modo Licença Semanal Ativo:</strong><br>
-          O sistema processará de forma encadeada <strong>todos os 5 dias da semana (Segunda a Sexta)</strong> para o(s) professor(es) de licença, respeitando o teto de 32 aulas e a distribuição equitativa entre os pares.
+          O sistema processará de forma encadeada <strong>todos os 5 dias da semana (Segunda a Sexta)</strong>.
         </div>
 
         <div class="horarios-timeline">
-          <strong>Grade Oficial do PEI 9h (Aulas Letivas):</strong><br>
-          • 1ª Aula (07:00-07:50): ATPCG / Tutoria (fixa, sem substituição).<br>
-          • Manhã: 2ª Aula (07:50), 3ª Aula (08:40) | <em>Intervalo 15m</em> | 4ª Aula (09:45), 5ª Aula (10:35)<br>
-          • <em>Almoço 1h (11:25-12:25)</em><br>
-          • Tarde: 6ª Aula (12:25), 7ª Aula (13:15) | <em>Intervalo 15m</em> | 8ª Aula (14:20), 9ª Aula (15:10)
+          <strong>Grade Oficial do PEI 9h:</strong><br>
+          • 1ª Aula (07:00-07:50): ATPCG / Tutoria.<br>
+          • Manhã: 2ª, 3ª, 4ª, 5ª Aulas | Tarde: 6ª, 7ª, 8ª, 9ª Aulas
         </div>
       </div>
 
@@ -242,11 +238,11 @@
         <div class="card-title">Ordem Legal de Prioridades</div>
         <div class="law-box">
           <p style="font-weight: 700; margin-bottom: 4px;">Resolução SEDUC nº 163/2025 (Art. 18, § 2º, II):</p>
-          <div class="law-item"><strong>1º:</strong> Docente com menor carga na <em>mesma área</em></div>
-          <div class="law-item"><strong>2º:</strong> Docente com menor carga em <em>área diversa</em></div>
-          <div class="law-item"><strong>3º:</strong> Professor Articulador (PAAC) da <em>mesma área</em></div>
-          <div class="law-item"><strong>4º:</strong> Professor Articulador (PAAC) de <em>área diversa</em></div>
-          <div class="law-item"><strong>5º:</strong> Coordenador de Gestão Pedagógica Geral (CGPG)</div>
+          <div class="law-item"><strong>1º:</strong> Menor carga na <em>mesma área</em></div>
+          <div class="law-item"><strong>2º:</strong> Menor carga em <em>área diversa</em></div>
+          <div class="law-item"><strong>3º:</strong> PAAC da <em>mesma área</em></div>
+          <div class="law-item"><strong>4º:</strong> PAAC de <em>área diversa</em></div>
+          <div class="law-item"><strong>5º:</strong> Coordenador (CGPG)</div>
         </div>
       </div>
     </div>
@@ -372,11 +368,37 @@
   <!-- ABA: MULTIPLICA SP -->
   <div id="aba-multiplica" style="display: none;">
     <div class="card">
-      <div class="card-title"><span>Horários de Formação — Multiplica SP</span></div>
+      <div class="card-title">
+        <span>Horários de Formação — Multiplica SP (Bloqueio Automático)</span>
+      </div>
+      <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 10px;">
+        Os professores com formação do Multiplica SP estão bloqueados automaticamente nos horários abaixo. 
+        Você pode subir uma nova planilha ou colar as células do Excel diretamente.
+      </p>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+        <div class="upload-zone" onclick="document.getElementById('input-multiplica').click()">
+          <span style="font-size: 1.5rem;">📂</span>
+          <p style="font-weight: 700; font-size: 0.88rem;">Subir Planilha Multiplica (.xlsx, .csv)</p>
+          <span style="font-size: 0.72rem; color: var(--text-muted);">Lê as colunas de Área, Professor, Dia e Horário</span>
+          <input type="file" id="input-multiplica" accept=".xlsx, .xls, .xlsm, .xlsb, .csv" onchange="processarArquivoMultiplica(this)">
+        </div>
+
+        <div style="background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 10px;">
+          <label style="font-size: 0.8rem;">Ou Cole as Células da Planilha Aqui (Ctrl+V):</label>
+          <textarea id="txt-colar-multiplica" placeholder="Copie as colunas do Excel e cole aqui..." style="height: 60px; font-size: 0.75rem;"></textarea>
+          <button class="btn-secondary" style="width: 100%; margin-top: 4px;" onclick="processarTextoColadoMultiplica()">Importar Dados Colados</button>
+        </div>
+      </div>
+
+      <div id="status-multiplica" style="font-size: 0.82rem; font-weight: bold; color: var(--purple); margin-bottom: 8px;">
+        ✅ Base Multiplica SP integrada com 28 horários ativos de formação.
+      </div>
+
       <div class="gestao-container">
         <table>
           <thead>
-            <tr><th>Área</th><th>Professor(a)</th><th>Docente na Grade</th><th>Dia</th><th>Horário</th><th>Aulas Bloqueadas</th></tr>
+            <tr><th>Área</th><th>Professor(a) no Multiplica</th><th>Docente Associado na Grade</th><th>Dia da Formação</th><th>Horário da Formação</th><th>Aulas Bloqueadas</th></tr>
           </thead>
           <tbody id="tabela-multiplica-docentes"></tbody>
         </table>
@@ -601,6 +623,202 @@ function normalizarDiaTexto(txt) {
   return "Segunda";
 }
 
+function acionarUploadGrade() {
+  const inp = document.getElementById('input-grade-top');
+  if (inp) { inp.value = ''; inp.click(); }
+}
+
+function abrirModalColarGrade() {
+  document.getElementById('modal-colar-grade').style.display = 'flex';
+}
+
+function fecharModalColarGrade() {
+  document.getElementById('modal-colar-grade').style.display = 'none';
+}
+
+function processarArquivoGradeUniversal(input) {
+  const file = input.files[0];
+  if (!file) return;
+  mostrarLog(`Carregando arquivo "${file.name}"...`);
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const wb = XLSX.read(data, { type: 'array' });
+      const abasProf = wb.SheetNames.filter(s => !s.toUpperCase().includes("RESUMO") && !s.toUpperCase().includes("CONFIG"));
+      if (abasProf.length >= 2) {
+        interpretarExcelMultiAbas(wb, abasProf, file.name);
+      } else {
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+        interpretarMatrizGeral(rows, file.name);
+      }
+    } catch (err) {
+      alert("Erro ao ler Excel: " + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function interpretarExcelMultiAbas(wb, abas, origem) {
+  const horariosMap = { "07:00":1, "07:50":2, "08:40":3, "09:45":4, "10:35":5, "12:25":6, "13:15":7, "14:20":8, "15:10":9 };
+  const diasCols = { 1: "Segunda", 2: "Terça", 3: "Quarta", 4: "Quinta", 5: "Sexta" };
+  const novaGrade = [];
+  const novosDocentes = {};
+
+  abas.forEach(sheetName => {
+    try {
+      const sheet = wb.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+      if (!rows || rows.length < 5) return;
+      const nomeDoc = sheetName.trim().toUpperCase();
+      novosDocentes[nomeDoc] = { nome: nomeDoc, area: "Linguagens", carga: 0, funcao: "DOCENTE" };
+
+      const matriz = {};
+      for(let c=1; c<=5; c++) matriz[c] = {};
+
+      rows.forEach(row => {
+        if (!row || !row[0]) return;
+        const h = String(row[0]).trim().substring(0, 5);
+        const aulaNum = horariosMap[h];
+        if (!aulaNum) return;
+        for (let c=1; c<=5; c++) {
+          matriz[c][aulaNum] = row[c] !== undefined ? String(row[c]).trim() : "";
+        }
+      });
+
+      for(let c=1; c<=5; c++) {
+        const dia = diasCols[c];
+        for(let a=1; a<=9; a++) {
+          const val = matriz[c][a] || "";
+          if (a === 1) {
+            novaGrade.push({ docente: nomeDoc, dia, aula: 1, status: "FIXO_ATPC_TUTORIA", disciplina: val || (c<=2?"ATPCG":"TUTORIA"), turma: "ATPCG / TUTORIA" });
+            continue;
+          }
+          if (c === 5 && (a === 8 || a === 9)) {
+            novosDocentes[nomeDoc].carga++;
+            novaGrade.push({ docente: nomeDoc, dia: "Sexta", aula: a, status: "EM_AULA", disciplina: "ELETIVA", turma: "Turma Regular" });
+            continue;
+          }
+          if (!val || val === "-" || val.toUpperCase().includes("ATPC")) {
+            novaGrade.push({ docente: nomeDoc, dia, aula: a, status: "LIVRE", disciplina: "Janela Livre", turma: "JANELA LIVRE" });
+          } else {
+            novosDocentes[nomeDoc].carga++;
+            novaGrade.push({ docente: nomeDoc, dia, aula: a, status: "EM_AULA", disciplina: val, turma: "Turma Regular" });
+          }
+        }
+      }
+    } catch(e) {}
+  });
+
+  if (Object.keys(novosDocentes).length > 0) {
+    aplicarNovaGradeCarregada(novaGrade, novosDocentes, origem);
+  }
+}
+
+function interpretarMatrizGeral(rows, origem) {
+  const dias = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta"];
+  const novaGrade = [];
+  const novosDocentes = {};
+  rows.forEach(linha => {
+    if (!linha || linha.length < 10) return;
+    const col0 = String(linha[0] || "").trim();
+    if (col0.length > 2 && !col0.toUpperCase().includes("ESCOLA") && !col0.toUpperCase().includes("PROFESSOR")) {
+      const nomeDoc = col0.toUpperCase();
+      novosDocentes[nomeDoc] = { nome: nomeDoc, area: "Linguagens", carga: 0, funcao: "DOCENTE" };
+      dias.forEach((dia, d) => {
+        const colBase = 1 + (d * 9);
+        for(let a=1; a<=9; a++) {
+          const val = linha[colBase + (a - 1)] ? String(linha[colBase + (a - 1)]).trim() : "";
+          if (a === 1) {
+            novaGrade.push({ docente: nomeDoc, dia, aula: 1, status: "FIXO_ATPC_TUTORIA", disciplina: val || "ATPCG", turma: "ATPCG / TUTORIA" });
+          } else if (dia === "Sexta" && (a === 8 || a === 9)) {
+            novosDocentes[nomeDoc].carga++;
+            novaGrade.push({ docente: nomeDoc, dia: "Sexta", aula: a, status: "EM_AULA", disciplina: "ELETIVA", turma: "Turma Regular" });
+          } else if (!val || val === "-") {
+            novaGrade.push({ docente: nomeDoc, dia, aula: a, status: "LIVRE", disciplina: "Janela Livre", turma: "JANELA LIVRE" });
+          } else {
+            novosDocentes[nomeDoc].carga++;
+            novaGrade.push({ docente: nomeDoc, dia, aula: a, status: "EM_AULA", disciplina: val, turma: "Turma Regular" });
+          }
+        }
+      });
+    }
+  });
+  if (Object.keys(novosDocentes).length > 0) aplicarNovaGradeCarregada(novaGrade, novosDocentes, origem);
+}
+
+function aplicarNovaGradeCarregada(novaGrade, novosDocentes, origem) {
+  novosDocentes["COORDENADOR GERAL (CGPG)"] = { nome: "COORDENADOR GERAL (CGPG)", area: "Gestão", carga: 0, funcao: "CGPG" };
+  gradeGlobal = novaGrade;
+  docentesMeta = novosDocentes;
+  recalcularCargasBase();
+  renderizarTodosBlocos();
+  preencherSelectIndividual();
+  renderizarTabelaGestao();
+  sincronizarDadosNuvem(true);
+  mostrarLog(`Sucesso: ${Object.keys(novosDocentes).length - 1} professores carregados de ${origem}.`);
+  alert(`Grade carregada com sucesso de "${origem}"!`);
+}
+
+function processarArquivoMultiplica(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const wb = XLSX.read(data, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const json = XLSX.utils.sheet_to_json(ws, { header: 1 });
+      let novaLista = [];
+      json.forEach((row, idx) => {
+        if (idx > 0 && row[1] && row[3] && row[4]) {
+          novaLista.push({ area: row[0]||"CH", nome: String(row[1]).trim(), dia: String(row[3]).trim(), horario: String(row[4]).trim() });
+        }
+      });
+      if (novaLista.length > 0) {
+        listaMultiplica = novaLista;
+        recomputarBloqueiosMultiplica();
+        renderizarTabelaMultiplica();
+        alert(`Multiplica SP atualizado com ${novaLista.length} horários.`);
+      }
+    } catch(err) { alert("Erro no Multiplica: "+err.message); }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function processarTextoColadoMultiplica() {
+  const txt = document.getElementById("txt-colar-multiplica").value.trim();
+  if (!txt) return alert("Cole os dados primeiro.");
+  const linhas = txt.split(/?
+/).map(l => l.split("	").map(c => c.trim()));
+  let novaLista = [];
+  linhas.forEach(row => {
+    if (row.length >= 4 && row[0]) {
+      novaLista.push({ area: "Geral", nome: row[0], dia: row[1]||"Segunda", horario: row[2]||"8h" });
+    }
+  });
+  if (novaLista.length > 0) {
+    listaMultiplica = novaLista;
+    recomputarBloqueiosMultiplica();
+    renderizarTabelaMultiplica();
+    alert(`Multiplica SP colado com ${novaLista.length} registros.`);
+  }
+}
+
+function renderizarTabelaMultiplica() {
+  const tbody = document.getElementById("tabela-multiplica-docentes");
+  if (!tbody) return;
+  tbody.innerHTML = "";
+  listaMultiplica.forEach(item => {
+    const casado = casarNomeProfessor(item.nome);
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td><span class="tag-area">${item.area}</span></td><td><strong>${item.nome}</strong></td><td><span style="color:${casado?'var(--success)':'var(--danger)'};">${casado||'⚠️ Não achado'}</span></td><td><strong>${item.dia}</strong></td><td>${item.horario}</td><td><span class="tag-multiplica">Bloqueado</span></td>`;
+    tbody.appendChild(tr);
+  });
+}
+
 function alternarAba(aba) {
   document.getElementById("aba-subst").style.display = (aba === "subst") ? "grid" : "none";
   document.getElementById("aba-resumo").style.display = (aba === "resumo") ? "block" : "none";
@@ -619,6 +837,7 @@ function alternarAba(aba) {
   if (aba === "individual") preencherSelectIndividual();
   if (aba === "contador") renderizarTabelaContadorSemanal();
   if (aba === "resumo") renderizarResumoGeral();
+  if (aba === "multiplica") renderizarTabelaMultiplica();
   if (aba === "paac") renderizarTabelaGestao();
 }
 
@@ -641,11 +860,9 @@ function renderizarGradeIndividual() {
   const prof = sel.value;
   if (!prof) return;
   const meta = docentesMeta[prof] || { area: "Linguagens", carga: 0, funcao: "DOCENTE" };
-  const tagPaac = meta.funcao === "PAAC" ? " | Professor Articulador (PAAC)" : "";
-
   document.getElementById("titulo-grade-individual").textContent = `Grade Semanal: ${prof}`;
-  document.getElementById("print-nome-docente").textContent = `Docente: ${prof} — Área: ${meta.area} (${meta.carga} aulas)${tagPaac}`;
-  document.getElementById("info-prof-individual").innerHTML = `<strong>Área:</strong> <span class="tag-area">${meta.area}</span> | <strong>Carga:</strong> <strong>${meta.carga} aulas</strong>`;
+  document.getElementById("print-nome-docente").textContent = `Docente: ${prof} — Área: ${meta.area} (${meta.carga} aulas)`;
+  document.getElementById("info-prof-individual").innerHTML = `<strong>Área:</strong> <span class="tag-area">${meta.area}</span>`;
 
   const tbody = document.getElementById("tabela-grade-individual");
   tbody.innerHTML = "";
@@ -687,8 +904,7 @@ function renderizarTabelaGestao() {
         </select>
       </td>
       <td><strong>${meta.carga} aulas</strong></td>
-      <td><input type="checkbox" id="gestao-paac-${n}" ${meta.funcao === "PAAC" ? "checked" : ""}> Sim (PAAC)</td>
-    `;
+      <td><input type="checkbox" id="gestao-paac-${n}" ${meta.funcao === "PAAC" ? "checked" : ""}> Sim (PAAC)</td>`;
     tbody.appendChild(tr);
   });
 }
@@ -703,7 +919,7 @@ function salvarConfiguracoesDocentes() {
     }
   });
   sincronizarDadosNuvem(true);
-  alert("Configurações de PAACs e Macroáreas salvas na nuvem com sucesso!");
+  alert("Configurações salvas na nuvem com sucesso!");
   renderizarTodosBlocos();
 }
 
@@ -748,7 +964,8 @@ function preencherDropdownDocentes(idNum) {
   const sel = document.getElementById(`sel-docente-${idNum}`);
   if (!sel) return;
   sel.innerHTML = "";
-  Object.keys(docentesMeta).filter(k => docentesMeta[k].funcao !== "CGPG").sort().forEach(n => {
+  const nomes = Object.keys(docentesMeta).filter(k => docentesMeta[k].funcao !== "CGPG").sort();
+  nomes.forEach(n => {
     const meta = docentesMeta[n];
     const opt = document.createElement("option");
     opt.value = n;
@@ -843,7 +1060,6 @@ function calcularSubstituicaoMultipla() {
 
         const metaAusente = docentesMeta[ausente] || { area: "Linguagens" };
 
-        // Candidatos livres que NÃO estão ausentes, NÃO estão alocados neste horário e NÃO ultrapassam teto
         const pool = gradeDia.filter(g => {
           return g.aula === aula && g.status === "LIVRE" &&
                  !ausentesSet.has(g.docente) &&
@@ -854,7 +1070,6 @@ function calcularSubstituicaoMultipla() {
 
         if (pool.length === 0) return;
 
-        // Hierarquia de prioridade Resolução SEDUC 163/2025
         const catA = pool.filter(c => docentesMeta[c.docente]?.area === metaAusente.area && docentesMeta[c.docente]?.funcao === "DOCENTE");
         const catB = pool.filter(c => docentesMeta[c.docente]?.area !== metaAusente.area && docentesMeta[c.docente]?.funcao === "DOCENTE");
         const catC = pool.filter(c => docentesMeta[c.docente]?.area === metaAusente.area && docentesMeta[c.docente]?.funcao === "PAAC");
@@ -933,7 +1148,7 @@ function confirmarEEnviarEscala() {
     if (item.docente !== "COORDENADOR GERAL (CGPG)") {
       contagemSubstMes[item.docente] = (contagemSubstMes[item.docente] || 0) + 1;
     }
-    historicoEscalasAtivas.unshift(item); // Adiciona ao topo do resumo geral
+    historicoEscalasAtivas.unshift(item);
   });
 
   sincronizarDadosNuvem(true);
@@ -1011,7 +1226,7 @@ function ajustarContadorManual(docente, delta) {
 }
 
 function zerarSemanaSubstituicao() {
-  if (confirm("Deseja realmente zerar todos os contadores e o resumo de substituições para iniciar uma nova semana?")) {
+  if (confirm("Deseja realmente zerar todos os contadores e o resumo para iniciar uma nova semana?")) {
     contagemSubstMes = {};
     historicoEscalasAtivas = [];
     sincronizarDadosNuvem(true);
@@ -1031,8 +1246,7 @@ function aoMudarDataSubst() {
   if (diasMap[diaNum]) { selDia.value = diasMap[diaNum]; aoMudarDia(); }
 }
 
-
-// Garantir escopo global para todas as funções chamadas pelo HTML (onclick)
+// Garantir escopo global para o window
 window.alternarAba = alternarAba;
 window.acionarUploadGrade = acionarUploadGrade;
 window.abrirModalColarGrade = abrirModalColarGrade;
