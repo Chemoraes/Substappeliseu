@@ -115,6 +115,7 @@
   </style>
 
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 </head>
 <body>
@@ -157,6 +158,20 @@
   </header>
 
   <div class="card no-print" style="padding:10px 16px;">
+    <div id="painel-login" style="margin-bottom:12px;">
+      <strong>Acesso da equipe escolar</strong>
+      <form id="form-login" onsubmit="event.preventDefault(); entrarNoSistema();" style="display:flex; flex-wrap:wrap; gap:10px; align-items:end; margin-top:10px;">
+        <div><label for="login-email">E-mail</label><input id="login-email" type="email" autocomplete="username" required style="padding:9px; border:1px solid #cbd5e1; border-radius:6px;"></div>
+        <div><label for="login-senha">Senha</label><input id="login-senha" type="password" autocomplete="current-password" required style="padding:9px; border:1px solid #cbd5e1; border-radius:6px;"></div>
+        <button id="btn-entrar" type="submit" class="btn-secondary" style="padding:9px 18px;">Entrar</button>
+      </form>
+      <div id="sessao-usuario" style="display:none; margin-top:8px;">
+        <span id="usuario-email"></span>
+        <button class="btn-secondary" onclick="reconectarSessao()">Reconectar</button>
+        <button class="btn-secondary" onclick="sairDoSistema()">Sair</button>
+      </div>
+      <p id="mensagem-login" role="status" aria-live="polite" style="margin-top:8px;"></p>
+    </div>
     <div id="status-nuvem" role="status" aria-live="polite">Conectando ao Firebase…</div>
     <label for="semana-consulta" style="margin-top:8px;">Consultar semana (selecione qualquer data da semana):</label>
     <input type="date" id="semana-consulta" onchange="selecionarSemana(this.value)">
@@ -508,12 +523,16 @@ let configPronta = false;
 let semanaPronta = false;
 let pararSemana = null;
 let erroFirebase = '';
+let pararConfig = null;
+let sessaoVersao = 0;
+let authFirebase = null;
 try {
   if (Object.values(firebaseConfig).some(v => /^(SUA_|SEU_)/.test(v))) {
     throw new Error('Configuração incompleta: preencha apiKey, messagingSenderId e appId com os valores do seu projeto Firebase.');
   }
   if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
   dbFirebase = firebase.firestore();
+  authFirebase = firebase.auth();
 } catch (e) { erroFirebase = e.message; }
 
 function mostrarLog(texto, isErro) {
@@ -1949,6 +1968,8 @@ async function salvarConfiguracao(campos) {
   }
 }
 async function iniciarSincronizacao() {
+  if (!authFirebase || !authFirebase.currentUser) { statusNuvem('Entre com seu e-mail e senha para acessar os registros compartilhados.'); return; }
+  const versao = sessaoVersao;
   if (!dbFirebase) { statusNuvem('Firebase indisponível — '+erroFirebase+' Você pode visualizar propostas, mas não confirmar.'); return; }
   statusNuvem('Conectando ao servidor…');
   try {
@@ -1966,25 +1987,34 @@ async function iniciarSincronizacao() {
       });
       tx.set(raizRef(), {schemaVersion:3, semanaMigracao:semanaHoje, revisaoConfig:dados.revisaoConfig || 0}, {merge:true});
     });
-    raizRef().onSnapshot({includeMetadataChanges:true}, snap => {
+    if (versao !== sessaoVersao) return;
+    if (pararConfig) pararConfig();
+    pararConfig = raizRef().onSnapshot({includeMetadataChanges:true}, snap => {
+      if (versao !== sessaoVersao) return;
       configPronta = !snap.metadata.fromCache && !snap.metadata.hasPendingWrites;
       if (!configPronta) { statusNuvem('Sem confirmação do servidor — confirmação de escalas bloqueada.'); document.getElementById('btn-confirmar').disabled=true; return; }
       const dados = snap.data() || {};
       if ((dados.revisaoConfig || 0) !== configRevisao) invalidarProposta('A configuração foi atualizada. Processe novamente a proposta.');
       aplicarConfig(dados);
       atualizarStatusConexao();
-    }, erroConexao);
+    }, e => { if (versao === sessaoVersao) erroConexao(e); });
     ouvirSemana();
-  } catch(e) { erroConexao(e); }
+  } catch(e) { if (versao === sessaoVersao) erroConexao(e); }
 }
 function erroConexao(e) {
   configPronta=false; semanaPronta=false;
   invalidarProposta('A confirmação exige conexão com o Firebase.');
-  statusNuvem('Não foi possível sincronizar: '+e.message+' Verifique a configuração e as permissões do Firestore. Recarregue após corrigir.');
+  const semPermissao = e.code === 'permission-denied' || /permission|403/i.test(e.message || '');
+  if (semPermissao) {
+    const uid = authFirebase?.currentUser?.uid || '';
+    statusNuvem('Acesso negado pelo Firestore. Verifique se as novas regras foram publicadas e se o UID desta conta está autorizado.');
+    document.getElementById('mensagem-login').textContent = 'UID desta conta: '+uid+'. Após autorizar no Firebase, clique em Reconectar.';
+  } else statusNuvem('Não foi possível sincronizar: '+e.message+'. Verifique a conexão e clique em Reconectar.');
 }
 function atualizarStatusConexao() {
   if (configPronta && semanaPronta) {
     statusNuvem('Conectado — registros confirmados sincronizados em tempo real.');
+    document.getElementById('mensagem-login').textContent='Acesso autorizado.';
     if (propostaPendente && !confirmando && propostaPendente.revisao === (estadoSemana.revisao || 0) && propostaPendente.configRevisao === configRevisao)
       document.getElementById('btn-confirmar').disabled=propostaPendente.resultados.some(r => r.docente === 'SEM SUBSTITUTO');
   }
@@ -1994,15 +2024,16 @@ function ouvirSemana() {
   semanaPronta=false;
   if (!dbFirebase) return;
   const chave = semanaAtiva;
+  const versao = sessaoVersao;
   pararSemana = semanaRef(chave).onSnapshot({includeMetadataChanges:true}, snap => {
-    if (chave !== semanaAtiva) return;
+    if (chave !== semanaAtiva || versao !== sessaoVersao) return;
     semanaPronta = !snap.metadata.fromCache && !snap.metadata.hasPendingWrites;
     if (!semanaPronta) { statusNuvem('Aguardando o servidor — confirmação bloqueada.'); document.getElementById('btn-confirmar').disabled=true; return; }
     const dados = snap.data() || {};
     if (propostaPendente && (dados.revisao || 0) !== propostaPendente.revisao && !confirmando) invalidarProposta('Outro registro foi confirmado ou ajustado. Processe novamente para considerar os novos dados.');
     aplicarSemana(dados);
     atualizarStatusConexao();
-  }, erroConexao);
+  }, e => { if (versao === sessaoVersao) erroConexao(e); });
 }
 function selecionarSemana(iso) {
   if (!iso || confirmando) return;
@@ -2105,6 +2136,72 @@ function renderizarResumoGeral() {
      r.disciplina+' ['+r.turma+']', r.docente, 'Confirmada'].forEach(valor => { tr.insertCell().textContent=valor; });
   });
 }
+
+function limparSessaoCompartilhada() {
+  sessaoVersao++;
+  if (pararConfig) pararConfig();
+  if (pararSemana) pararSemana();
+  pararConfig=null; pararSemana=null;
+  configPronta=false; semanaPronta=false;
+  invalidarProposta('Entre e sincronize antes de processar ou confirmar.');
+  aplicarSemana({});
+  document.getElementById('tabela-escala').innerHTML='';
+  document.getElementById('texto-aviso').value='';
+  document.getElementById('card-resultado').style.display='none';
+  gradeGlobal=JSON.parse(JSON.stringify(BASE_INICIAL.grade));
+  docentesMeta=JSON.parse(JSON.stringify(BASE_INICIAL.professores));
+  recalcularCargasBase();
+  renderizarTodosBlocos(); renderizarTabelaGestao(); preencherSelectIndividual(); renderizarTabelaContadorSemanal();
+}
+function erroLogin(e) {
+  const mensagens = {
+    'auth/operation-not-allowed':'Ative E-mail/senha em Firebase → Authentication → Método de login.',
+    'auth/configuration-not-found':'Ative o Authentication e o provedor E-mail/senha no projeto substituicoeseliseu.',
+    'auth/invalid-email':'Digite um e-mail válido.',
+    'auth/user-not-found':'E-mail ou senha incorretos.',
+    'auth/wrong-password':'E-mail ou senha incorretos.',
+    'auth/invalid-credential':'E-mail ou senha incorretos.',
+    'auth/invalid-login-credentials':'E-mail ou senha incorretos.',
+    'auth/user-disabled':'Esta conta está desativada. Procure o responsável pelo sistema.',
+    'auth/too-many-requests':'Muitas tentativas. Aguarde alguns minutos e tente novamente.',
+    'auth/network-request-failed':'Falha de conexão. Verifique a internet e tente novamente.',
+    'auth/unauthorized-domain':'Autorize o domínio do site nas configurações do Authentication.'
+  };
+  document.getElementById('mensagem-login').textContent=mensagens[e.code] || 'Não foi possível entrar: '+e.message;
+}
+async function entrarNoSistema() {
+  if (!authFirebase) return erroLogin({message:erroFirebase || 'Firebase indisponível. Recarregue a página.'});
+  const btn=document.getElementById('btn-entrar'); if (btn.disabled) return;
+  btn.disabled=true;
+  document.getElementById('mensagem-login').textContent='Entrando…';
+  try {
+    await authFirebase.setPersistence(firebase.auth.Auth.Persistence.SESSION);
+    await authFirebase.signInWithEmailAndPassword(document.getElementById('login-email').value.trim(),document.getElementById('login-senha').value);
+  } catch(e) { erroLogin(e); }
+  finally { btn.disabled=false; document.getElementById('login-senha').value=''; }
+}
+async function sairDoSistema() {
+  if (confirmando) return alert('Aguarde a confirmação terminar antes de sair.');
+  try { await authFirebase.signOut(); } catch(e) { erroLogin(e); }
+}
+async function reconectarSessao() {
+  if (confirmando || !authFirebase?.currentUser) return;
+  limparSessaoCompartilhada();
+  await iniciarSincronizacao();
+}
+function iniciarAutenticacao() {
+  if (!authFirebase) { statusNuvem('Firebase indisponível: '+erroFirebase); return; }
+  authFirebase.onAuthStateChanged(user => {
+    limparSessaoCompartilhada();
+    document.getElementById('form-login').style.display=user ? 'none' : 'flex';
+    document.getElementById('sessao-usuario').style.display=user ? 'block' : 'none';
+    document.getElementById('usuario-email').textContent=user ? 'Conta: '+user.email+' ' : '';
+    document.getElementById('mensagem-login').textContent=user ? 'Login efetuado. Verificando acesso aos registros…' : 'Use uma conta cadastrada e autorizada pelo responsável da escola.';
+    if (user) iniciarSincronizacao();
+    else statusNuvem('Entre com seu e-mail e senha para acessar os registros compartilhados.');
+  }, erroLogin);
+}
+
 recomputarBloqueiosMultiplica();
 renderizarTodosBlocos();
 document.getElementById('input-data-subst').value=isoLocal(new Date());
@@ -2112,7 +2209,7 @@ aoMudarDataSubst();
 document.getElementById('container-ausencias').addEventListener('change', () => invalidarProposta('Ausências alteradas. Processe novamente.'));
 document.getElementById('container-ausencias').addEventListener('click', () => invalidarProposta('Seleção alterada. Processe novamente.'));
 document.getElementById('sel-tipo-subst').addEventListener('change', () => invalidarProposta('Tipo alterado. Processe novamente.'));
-iniciarSincronizacao();
+iniciarAutenticacao();
 
 </script>
 </body>
